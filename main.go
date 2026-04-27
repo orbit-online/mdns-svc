@@ -39,7 +39,8 @@ func main() {
 		}
 	}
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGHUP)
+	signal.Notify(sigs, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT)
 	var err error
 	var instance string
 	var hostName string
