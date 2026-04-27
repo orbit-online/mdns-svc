@@ -16,11 +16,11 @@ type Params struct {
 	Instance    string   `default:"$HOST" help:"The name of the specifi instance of this service"`
 	Service     string   `default:"_http._tcp" help:"The service type to advertise"`
 	Domain      string   `default:"local." help:"The domain to advertise the service under"`
-	HostName    string   `default:"$HOST." help:"The hostname of the advertied service"`
+	Hostname    string   `default:"$HOST." help:"The hostname of the advertied service"`
 	Port        int      `required:"" arg:"" help:"The port the advertised service is running on"`
 	Description string   `help:"A text describing the advertised service"`
 	Interface   string   `help:"Name of the interface to advertise on"`
-	IPs         []string `help:"IP addresses to advertise"`
+	IPs         []string `name:"ip" help:"IP addresses to advertise"`
 	Verbose     bool     `help:"Turn on verbose logging"`
 }
 
@@ -49,12 +49,12 @@ func main() {
 	} else {
 		instance = params.Instance
 	}
-	if params.HostName == "$HOST." {
+	if params.Hostname == "$HOST." {
 		hostName, err = os.Hostname()
 		handleError(err)
 		hostName = fmt.Sprintf("%s.", hostName)
 	} else {
-		hostName = params.HostName
+		hostName = params.Hostname
 	}
 	var ips []net.IP = nil
 	if len(params.IPs) > 0 {
