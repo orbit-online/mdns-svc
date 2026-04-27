@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    name: Compile & upload release binaries
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - id: program_version
+      uses: orbit-online/program-version@v1
+    - name: Build mdns-svc
+      run: |
+        mkdir -p release/github.com/orbit-online/
+        for arch in amd64 arm64 386; do
+          GOOS=linux GOARCH=$arch go build --ldflags="-X main.VERSION=${{ steps.program_version.outputs.version }}" -o release/github.com/orbit-online/mdns-svc-linux-${arch}
+        done
+        for arch in amd64 arm64; do
+          GOOS=darwin GOARCH=$arch go build --ldflags="-X main.VERSION=${{ steps.program_version.outputs.version }}" -o release/github.com/orbit-online/mdns-svc-darwin-${arch}
+        done
+    - id: release
+      uses: orbit-online/git-release@v1
+    - uses: ncipollo/release-action@v1
+      with:
+        name: ${{ steps.program_version.outputs.version }}
+        body: ${{ steps.release.outputs.message }}
+        draft: false
+        prerelease: false
+        artifacts: release/github.com/orbit-online/*
+        artifactErrorsFailBuild: true
+        artifactContentType: application/octet-stream
