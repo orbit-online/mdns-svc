@@ -6,74 +6,75 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/alecthomas/kong"
-	"github.com/hashicorp/mdns"
+	mdns "github.com/pion/mdns/v2"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 type Params struct {
-	Instance    string   `default:"$HOST" help:"The name of the specifi instance of this service"`
-	Service     string   `default:"_http._tcp" help:"The service type to advertise"`
-	Domain      string   `default:"local." help:"The domain to advertise the service under"`
-	Hostname    string   `default:"$HOST." help:"The hostname of the advertied service"`
-	Port        int      `required:"" arg:"" help:"The port the advertised service is running on"`
-	Description string   `help:"A text describing the advertised service"`
-	Interface   string   `help:"Name of the interface to advertise on"`
-	IPs         []string `name:"ip" help:"IP addresses to advertise"`
-	Verbose     bool     `help:"Turn on verbose logging"`
+	Domain   string `default:"local." help:"The domain to advertise the service under"`
+	Hostname string `help:"The hostname of the advertised service"`
+	Verbose  bool   `help:"Turn on verbose logging"`
 }
 
 var params Params
 
 func main() {
-	kong.Parse(&params, kong.Name("mdns-svc"), kong.Description("A tiny cli wrapper for hashicorps mDNS library"))
+	kong.Parse(&params, kong.Name("mdns-svc"), kong.Description("A tiny cli wrapper for Pions mDNS library"))
 	slog.SetDefault(slog.Default())
 	if params.Verbose {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
-	handleError := func(err error) {
-		if err != nil {
-			slog.Error(err.Error())
-			os.Exit(1)
-		}
-	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM)
 	signal.Notify(sigs, syscall.SIGINT)
-	var err error
-	var instance string
-	var hostName string
-	if params.Instance == "$HOST" {
-		instance, err = os.Hostname()
-		handleError(err)
-	} else {
-		instance = params.Instance
+
+	server, err := createServer(params)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
-	if params.Hostname == "$HOST." {
-		hostName, err = os.Hostname()
-		handleError(err)
-		hostName = fmt.Sprintf("%s.", hostName)
-	} else {
-		hostName = params.Hostname
-	}
-	var ips []net.IP = nil
-	if len(params.IPs) > 0 {
-		ips = []net.IP{}
-		for _, ip := range params.IPs {
-			ips = append(ips, net.ParseIP(ip))
-		}
-	}
-	var iface *net.Interface
-	if params.Interface != "" {
-		iface, err = net.InterfaceByName(params.Interface)
-		handleError(err)
-	}
-	service, err := mdns.NewMDNSService(instance, params.Service, params.Domain, hostName, params.Port, ips, []string{params.Description})
-	handleError(err)
-	slog.Debug(fmt.Sprintf("Broadcasting %s port %d on %s%s", params.Service, params.Port, hostName, params.Domain))
-	server, err := mdns.NewServer(&mdns.Config{Zone: service, Iface: iface})
-	handleError(err)
-	defer server.Shutdown()
+	defer server.Close()
 	<-sigs
+}
+
+func createServer(params Params) (*mdns.Conn, error) {
+	var (
+		err      error
+		hostname string
+	)
+	if params.Hostname == "" {
+		hostname, err = os.Hostname()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		hostname = strings.TrimRight(params.Hostname, ".")
+	}
+
+	addr4, err := net.ResolveUDPAddr("udp4", mdns.DefaultAddressIPv4)
+	if err != nil {
+		return nil, err
+	}
+	addr6, err := net.ResolveUDPAddr("udp6", mdns.DefaultAddressIPv6)
+	if err != nil {
+		return nil, err
+	}
+
+	l4, err := net.ListenUDP("udp4", addr4)
+	if err != nil {
+		return nil, err
+	}
+	l6, err := net.ListenUDP("udp6", addr6)
+	if err != nil {
+		return nil, err
+	}
+
+	return mdns.Server(ipv4.NewPacketConn(l4), ipv6.NewPacketConn(l6), &mdns.Config{
+		LocalNames: []string{fmt.Sprintf("%s.%s", hostname, strings.TrimRight(params.Domain, "."))},
+	})
 }

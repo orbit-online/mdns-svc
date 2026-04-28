@@ -1,24 +1,17 @@
 # mdns-svc
 
-A tiny cli wrapper for [hashicorps mDNS library](https://github.com/hashicorp/mdns).
+A tiny cli wrapper for [Pions mDNS library](https://github.com/hashicorp/mdns).
 
 ## Usage
 
 ```
-Usage: mdns-svc <port> [flags]
+Usage: mdns-svc [flags]
 
-A tiny cli wrapper for hashicorps mDNS library
-
-Arguments:
-  <port>    The port the advertised service is running on
+A tiny cli wrapper for Pions mDNS library
 
 Flags:
-  -h, --help                    Show context-sensitive help.
-      --instance="$HOST"        The name of the specifi instance of this service
-      --service="_http._tcp"    The service type to advertise
-      --domain="local."         The domain to advertise the service under
-      --host-name="$HOST."      The hostname of the advertied service
-      --description=STRING      A text describing the advertised service
-      --interface=STRING        Name of the interface to advertise on
-      --verbose                 Turn on verbose logging
+  -h, --help               Show context-sensitive help.
+      --domain="local."    The domain to advertise the service under
+      --hostname=STRING    The hostname of the advertised service
+      --verbose            Turn on verbose logging
 ```
